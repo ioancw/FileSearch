@@ -18,6 +18,14 @@ let stopWords =
     [ "namespace"; "open"; "let"; "module" ]
     |> List.map Token
 
+let getTokensFromFile fileName =
+    File.ReadAllLines(fileName)
+    |> Array.collect
+        (fun line ->
+            line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map Token)
+    |> Array.filter (fun token -> not <| List.contains token stopWords)    
+
 let getDocuments (fileNames: string array) =
     fileNames
     |> Array.map

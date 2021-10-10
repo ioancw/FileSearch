@@ -28,8 +28,8 @@ let searchFile tokens parse check file =
     |> Seq.map (fun (i, l) -> SearchResult(i, file, l, tokens))
 
 let search tokens parse check =
-    Seq.map (fun file -> searchFile tokens parse check file)
-    >> Seq.concat
+    Seq.collect (searchFile tokens parse check)
+    //>> Seq.concat
 
 let printLineWithHighlight line tokens =
     //In order to do a Regex.Split (and return the word you split on) you need

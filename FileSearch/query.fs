@@ -10,7 +10,7 @@ let searchIndexForTerm index (searchTerm: string) =
     let matchedTokens =
         index.Ngrams.[searchNgram] //find all 'tokens' that match seach ngram
         |> Array.filter (fun (Token token) -> token.Contains(searchTerm))
-    //wild card is Contains, i.e. search for let you get completely and deedletest
+    //wild card is Contains, i.e. search for let you get 'completely' and 'deedletest'
     //it's the token that should be returned
     //as if not you end up finding all the let words in those two files.
     let matchedDocs =
@@ -51,7 +51,6 @@ let rec processTokens qs =
     | [ _ ] -> qs
     | QTokens (ql, l) :: QOperator o :: QTokens (qr, r) :: t ->
         let evalResult = eval l o r
-
         QTokens(Array.append ql qr, evalResult) :: t
         |> processTokens
     | _ when (qs.Length % 2) = 0 -> failwith "Not a balanced list"
@@ -65,20 +64,18 @@ let searchFor queryFolder query =
         { QueryText = query
           Index = getOrCreateIndex queryFolder }
 
-    let queryTokens, matchingFiles =
-        match q |> runQuery with
-        | QTokens (ql, l) -> ql, l
-        | _ -> failwith "Query didn't execute correctly."
+    match q |> runQuery with
+    | QTokens (queryTokens, matchingFiles) ->
+        matchingFiles
+        |> Seq.map (fun (Path path) -> path)
+        |> search
+            queryTokens
+            id
+            (fun (_, l) ->
+                queryTokens //TODO: need to sort this out - it should come from the tokens passed into this function
+                |> Array.exists (fun (Token t) -> l.Contains(t)))
+        |> Seq.groupBy (fun r -> r.File)
+        |> printResults
+    | _ -> failwith "Query didn't execute correctly."
 
-    let qt = queryTokens
 
-    matchingFiles
-    |> Seq.map (fun (Path path) -> path)
-    |> search
-        (queryTokens: Token [])
-        id
-        (fun (_, l) ->
-            qt //TODO: need to sort this out - it should come from the tokens passed into this function
-            |> Array.exists (fun (Token t) -> l.Contains(t)))
-    |> Seq.groupBy (fun r -> r.File)
-    |> printResults

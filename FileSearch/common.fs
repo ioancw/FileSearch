@@ -10,10 +10,13 @@ type Ngram = Ngram of string
 
 type Document = { Path: Path; Tokens: Token [] }
 
+// An index contains the Ngram map and a Token map.
+// Ngram
 type Index =
     { Ngrams: Map<Ngram, Token []>
       Tokens: Map<Token, Path []> }
 
+//A query contains the string to find within the Index
 type Query = { QueryText: string; Index: Index }
 
 let stringParse delimiter (s: string) = s.Split([| delimiter |])

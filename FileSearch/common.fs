@@ -3,6 +3,11 @@
 open System
 
 type Token = Token of string
+    with
+    member t.toString (Token token) = token
+    member t.existsIn (input: string) =
+        let unwrapped = t.toString t
+        input.Contains(unwrapped)
 
 type Path = Path of string
 

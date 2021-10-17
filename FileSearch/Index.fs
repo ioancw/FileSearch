@@ -11,8 +11,7 @@ let getFiles fileTypeToIndex folderToIndex =
     Directory.GetFiles(folderToIndex, "*." + fileTypeToIndex, SearchOption.AllDirectories)
 
 let delimiters =
-    ".,;<>()-+!@#$%^&*?[]{}:= \t\0'\"\\/"
-        .ToCharArray()
+    ".,;<>()-+!@#$%^&*?[]{}:= \t\0'\"\\/".ToCharArray()
 
 let stopWords =
     [ "namespace"; "open"; "let"; "module" ]
@@ -24,22 +23,30 @@ let getTokensFromFile fileName =
         (fun line ->
             line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
             |> Array.map Token)
-    |> Array.filter (fun token -> not <| List.contains token stopWords)    
+    
+let filterStopWords tokens = 
+    tokens
+    |> Array.filter (fun token -> not <| List.contains token stopWords)
+    
+let getDistinctTokensStopWords =
+    getTokensFromFile >> filterStopWords >> Array.distinct
+    
+/// Get counts of a given token
+let getTokenFrequencies tokens =
+    Array.groupBy id tokens
+    |> Array.map (fun (t, ts) -> t, Array.length ts)
+    
+let getFrequencyOfToken tokens word =
+    getTokenFrequencies tokens
+    |> Array.find (fun (t, c) -> t = Token word)
+    |> snd
 
 let getDocuments (fileNames: string array) =
     fileNames
     |> Array.map
         (fun fileName ->
-            let tokens =
-                File.ReadAllLines(fileName)
-                |> Array.collect
-                    (fun line ->
-                        line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
-                        |> Array.map Token)
-                |> Array.filter (fun token -> not <| List.contains token stopWords)
-
             { Path = Path(fileName)
-              Tokens = tokens |> Array.distinct })
+              Tokens = getDistinctTokensStopWords fileName })
 
 let tokeniseDocuments = getFiles fileTypeToIndex >> getDocuments
 
@@ -49,7 +56,7 @@ let distinctSnd (f, s) =
 let documentPath =
     fun (k, ds) -> (k, ds |> Array.map (fun d -> d.Path))
 
-let tokenToDocument (documents: Document []) =
+let generateTokenToFileMap (documents: Document []) =
     documents
     |> Array.collect
         (fun document ->
@@ -65,7 +72,7 @@ let ngrams n (Token t) =
     |> Seq.map (fun chars -> chars |> Array.take n |> stringContact |> Ngram)
     |> Seq.toArray
 
-let ngramsToTokens (documents: Document []) =
+let generateNgramsFromDocuments (documents: Document []) =
     let n = 3
     let getNgrams = ngrams n
 
@@ -145,22 +152,15 @@ let loadNgrams indexFolder =
         None
 
 let getOrCreateIndex indexFolder =
-    let tokensisedDocuments () = tokeniseDocuments indexFolder
-
-    let ngrams =
-        match loadNgrams indexFolder with
-        | Some n -> n
-        | None ->
-            let ngrams = ngramsToTokens (tokensisedDocuments ()) //TODO, cache the first call
+    let ngrams, tokens =
+        match loadNgrams indexFolder, loadTokens indexFolder with
+        | Some n, Some t -> n, t
+        | _ ->
+            let tokenisedDocuments = tokeniseDocuments indexFolder
+            let ngrams = generateNgramsFromDocuments tokenisedDocuments 
             saveNgrams indexFolder ngrams
-            ngrams
-
-    let tokens =
-        match loadTokens indexFolder with
-        | Some t -> t
-        | None ->
-            let tokens = tokenToDocument (tokensisedDocuments ())
+            let tokens = generateTokenToFileMap tokenisedDocuments
             saveTokens indexFolder tokens
-            tokens
-
+            ngrams, tokens
+            
     { Ngrams = ngrams; Tokens = tokens }

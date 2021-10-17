@@ -12,6 +12,7 @@
     <Compile Include="search.fs" />
     <Compile Include="query.fs" />
     <Compile Include="Program.fs" />
+    <None Include="scratch.fsx" />
   </ItemGroup>
 
   <ItemGroup>

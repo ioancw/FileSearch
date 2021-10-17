@@ -28,13 +28,23 @@ ngrams |> Map.iter (fun k v -> printfn "%A:%A" k v)
 open Common
 
 let mockedIndex =
-    let tokens =
+    let tokensFile1 =
         [|
             "upAndDown"
             "downAndOut"
             "upAndAcross"
         |] |> Array.map Common.Token
-    let mockedDocument = [|{Common.Path = Common.Path "testPath"; Common.Tokens = tokens}|]
+    let tokensFile2 =
+        [|
+            "upAndDown"
+            "overAndOut"
+            //"upAndAcross"
+        |] |> Array.map Common.Token        
+    let mockedDocument =
+        [|
+            {Common.Path = Common.Path "testPath1"; Common.Tokens = tokensFile1}
+            {Common.Path = Common.Path "testPath2"; Common.Tokens = tokensFile2}
+        |]
     let mockedNgrams = Index.generateNgramsFromDocuments mockedDocument
     let mockedTokensMap = Index.generateTokenToFileMap mockedDocument
     {Ngrams = mockedNgrams; Tokens = mockedTokensMap}
@@ -48,10 +58,13 @@ let queryResult = Query.runQuery mockedQuery
 //executes the query but doesn't combine
 let queryTokens = Query.executeQuery mockedQuery
 
-//seach the index for an individual word
+//search the index for an individual word
 let search = Query.searchIndexForTerm mockedQuery.Index "down"
 let search2 = Query.searchIndexForTerm mockedQuery.Index "Across"
 
 //a two part query with a token to combine the results
-let mockedQuery2 = {QueryText = "Down | Across"; Index = mockedIndex}
-let executedQuery2 = Query.executeQuery mockedQuery2
+
+let mockedQuery3 = {QueryText = "Down & Across"; Index = mockedIndex}
+let executedQuery3 = Query.executeQuery mockedQuery3
+let queryRan = Query.runQuery mockedQuery3
+

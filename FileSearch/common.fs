@@ -2,24 +2,33 @@
 
 open System
 
-type Token = Token of string
-    with
-    member t.toString (Token token) = token
-    member t.existsIn (input: string) =
-        let unwrapped = t.toString t
-        input.Contains(unwrapped)
-
-type Path = Path of string
-
+module Token = 
+    type T = Token of string
+    //wrap
+    let create (s: string) = Token s
+    //unwrap
+    let value (Token s) = s
+    
+    let existsIn (input: string) token =
+        token |> value |> input.Contains
+    let contains (input:string) token =
+        let asString = token |> value
+        input |> asString.Contains
+        
+module Path =
+    type T = Path of string
+    let create (s: string) = Path s
+    let value (Path s) = s
+    
 type Ngram = Ngram of string
 
-type Document = { Path: Path; Tokens: Token [] }
+type Document = { Path: Path.T; Tokens: Token.T [] }
 
 // An index contains the Ngram map and a Token map.
 // Ngram
 type Index =
-    { Ngrams: Map<Ngram, Token []>
-      Tokens: Map<Token, Path []> }
+    { Ngrams: Map<Ngram, Token.T []>
+      Tokens: Map<Token.T, Path.T []> }
 
 //A query contains the string to find within the Index
 type Query = { QueryText: string; Index: Index }

@@ -15,14 +15,14 @@ let delimiters =
 
 let stopWords =
     [ "namespace"; "open"; "let"; "module" ]
-    |> List.map Token
+    |> List.map Token.create
 
 let getTokensFromFile fileName =
     File.ReadAllLines(fileName)
     |> Array.collect
         (fun line ->
             line.Split(delimiters, StringSplitOptions.RemoveEmptyEntries)
-            |> Array.map Token)
+            |> Array.map Token.create)
     
 let filterStopWords tokens = 
     tokens
@@ -38,14 +38,14 @@ let getTokenFrequencies tokens =
     
 let getFrequencyOfToken tokens word =
     getTokenFrequencies tokens
-    |> Array.find (fun (t, c) -> t = Token word)
+    |> Array.find (fun (t, c) -> t = Token.create word)
     |> snd
 
 let getDocuments (fileNames: string array) =
     fileNames
     |> Array.map
         (fun fileName ->
-            { Path = Path(fileName)
+            { Path = Path.create fileName
               Tokens = getDistinctTokensStopWords fileName })
 
 let tokeniseDocuments = getFiles fileTypeToIndex >> getDocuments
@@ -66,8 +66,8 @@ let generateTokenToFileMap (documents: Document []) =
     |> Array.map (distinctSnd >> documentPath)
     |> Map.ofArray
 
-let ngrams n (Token t) =
-    t
+let ngrams n t =
+    Token.value t
     |> Seq.windowed (n + 1)
     |> Seq.map (fun chars -> chars |> Array.take n |> stringContact |> Ngram)
     |> Seq.toArray
@@ -78,7 +78,7 @@ let generateNgramsFromDocuments (documents: Document []) =
 
     documents
     |> Array.collect (fun document -> document.Tokens)
-    |> Array.filter (fun (Token token) -> token.Length >= n)
+    |> Array.filter (fun token -> token |> Token.value |> String.length >= n)
     |> Array.collect
         (fun token ->
             token
@@ -92,21 +92,21 @@ let saveTokens indexFolder tokens =
     let lines =
         tokens
         |> Map.map
-            (fun (Token token) paths ->
+            (fun token paths ->
                 paths
-                |> Array.map (fun (Path path) -> sprintf "%s~%s" token path))
+                |> Array.map (fun path -> sprintf "%s~%s" (Token.value token) (Path.value path)))
         |> Map.toSeq
         |> Seq.collect snd
 
     do File.WriteAllLines(indexFolder + "/tokens.txt", lines)
 
-let saveNgrams indexFolder (ngrams: Map<Ngram, Token []>) =
+let saveNgrams indexFolder (ngrams: Map<Ngram, Token.T []>) =
     let lines =
         ngrams
         |> Map.map
             (fun (Ngram ngram) tokens ->
                 tokens
-                |> Array.map (fun (Token t) -> t)
+                |> Array.map Token.value
                 |> arrayJoinComma
                 |> sprintf "%s:%s" ngram)
 
@@ -120,12 +120,12 @@ let loadTokens indexFolder =
 
     if File.Exists(fileName) then
         File.ReadAllLines(fileName)
-        |> Seq.groupBy (parseTilde >> Array.head >> Token)
+        |> Seq.groupBy (parseTilde >> Array.head >> Token.create)
         |> Seq.map
             (fun (token, lines) ->
                 token,
                 lines
-                |> Seq.map (parseTilde >> arraySecond >> Path)
+                |> Seq.map (parseTilde >> arraySecond >> Path.create)
                 |> Seq.toArray)
         |> Map.ofSeq
         |> Some
@@ -145,7 +145,7 @@ let loadNgrams indexFolder =
                 colonParsed
                 |> arraySecond
                 |> parseComma
-                |> Array.map Token)
+                |> Array.map Token.create)
         |> Map.ofSeq
         |> Some
     else

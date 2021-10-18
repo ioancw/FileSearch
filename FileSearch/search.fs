@@ -7,7 +7,7 @@ open System.Text.RegularExpressions
 open Common
 
 //found list of files to 'examine' further in order to find the line numbers where the search words exist.
-type SearchResult(lineNo: int, file: string, content: string, tokens: Token []) =
+type SearchResult(lineNo: int, file: string, content: string, tokens: Token.T []) =
     member t.LineNo = lineNo
     member t.File = file
     member t.Content = content
@@ -21,14 +21,12 @@ let read (file: string) =
             yield reader.ReadLine()
     }
 
-let searchFile tokens parse check file =
-    read file
+let searchFile tokens parse check (file: Path.T) =
+    let fileName = file |> Path.value
+    read fileName
     |> Seq.mapi (fun i l -> i + 1, parse l)
     |> Seq.filter check
-    |> Seq.map (fun (i, l) -> SearchResult(i, file, l, tokens))
-
-let search tokens parse check =
-    Seq.collect (searchFile tokens parse check)
+    |> Seq.map (fun (i, l) -> SearchResult(i, fileName, l, tokens))
 
 let printLineWithHighlight line tokens =
     //In order to do a Regex.Split (and return the word you split on) you need
@@ -36,7 +34,7 @@ let printLineWithHighlight line tokens =
     let regex =
         tokens
         |> Array.map (
-            (fun (Token t) -> t)
+            (fun t -> Token.value t)
             >> (fun t -> sprintf "(%s)" t)
         )
         |> stringJoinS "|"
@@ -44,7 +42,7 @@ let printLineWithHighlight line tokens =
     Regex.Split(line, regex)
     |> Array.iter
         (fun s ->
-            if Array.contains (Token s) tokens then
+            if Array.contains (Token.create s) tokens then
                 printc Colours.magenta s
             else
                 printc Colours.darkgreen s)

@@ -15,7 +15,7 @@ let searchIndexForTerm index (searchTerm: string) =
     | Some tokens ->
         let matchedTokens =
             tokens
-            |> Array.filter (fun (Token token) -> token.Contains(searchTerm))
+            |> Array.filter (Token.contains searchTerm)
         //this ensures that the word being searched for exists somewhere within the returned token.
         //i.e. searching for 'let' returns 'completely' and 'deedletest'
         let matchedDocs =
@@ -28,13 +28,13 @@ let searchIndexForTerm index (searchTerm: string) =
         matchedTokens, matchedDocs
     | None -> Array.empty, Set.empty
 
-type QOp =
+type QueryOperator =
     | And
     | Or
 
-type QToken =
-    | QTokens of Token [] * Set<Path>
-    | QOperator of QOp
+type Query =
+    | QueryResult of Token.T [] * Set<Path.T>
+    | CombineOperator of QueryOperator
 
 // executes the queries either side of the operator for later processing
 let executeQuery query =
@@ -45,9 +45,9 @@ let executeQuery query =
     |> Array.map
         (fun t ->
             match t with
-            | "&" -> QOperator And
-            | "|" -> QOperator Or
-            | _ -> QTokens(executeQuery t))
+            | "&" -> CombineOperator And
+            | "|" -> CombineOperator Or
+            | _ -> executeQuery t |> QueryResult)
     |> List.ofArray
 
 let eval l o r =
@@ -60,9 +60,9 @@ let eval l o r =
 let rec combineQueryResults qs =
     match qs with
     | [ _ ] -> qs
-    | QTokens (ql, l) :: QOperator o :: QTokens (qr, r) :: t ->
+    | QueryResult (ql, l) :: CombineOperator o :: QueryResult (qr, r) :: t ->
         let evalResult = eval l o r
-        QTokens(Array.append ql qr, evalResult) :: t
+        QueryResult(Array.append ql qr, evalResult) :: t
         |> combineQueryResults
     | _ when (qs.Length % 2) = 0 -> failwith "Not a balanced list"
     | _ -> failwith (sprintf "Error: %A" qs)
@@ -70,6 +70,20 @@ let rec combineQueryResults qs =
 let runQuery =
     executeQuery >> combineQueryResults >> List.head
 
+let searchFilesForTokens queryResult =
+    match queryResult with
+    | QueryResult (queryTokens, matchingFiles) ->
+        matchingFiles
+        |> Seq.collect
+            (searchFile
+                queryTokens
+                id
+                (fun (lineNumber, line) -> queryTokens |> Array.exists (Token.existsIn line))
+            )
+        |> Seq.groupBy (fun result -> result.File)
+        |> printResults
+    | _ -> failwith "Query didn't execute correctly"
+    
 let searchFor queryFolder query =
     let query =
         { QueryText = query
@@ -77,16 +91,9 @@ let searchFor queryFolder query =
 
     // run query to get tokens and files that match the search query
     // then find and highlight the token in the set of files
-    match query |> runQuery with
-    | QTokens (queryTokens, matchingFiles) ->
-        matchingFiles
-        |> Seq.map (fun (Path path) -> path)
-        |> search
-            queryTokens                                                           //tokens to search
-            id                                                                    //function to parse each row.
-            (fun (lineNumber, line) -> queryTokens |> Array.exists (fun token -> token.existsIn line ))// function to filter each row    
-        |> Seq.groupBy (fun r -> r.File)
-        |> printResults
-    | _ -> failwith "Query didn't execute correctly."
+    query
+    |> runQuery
+    |> searchFilesForTokens
+
 
 
